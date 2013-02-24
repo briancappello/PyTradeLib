@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Pytradelib by briancappello</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Pytradelib</h1>
+        <p>Python financial trading, research and backtesting library</p>
+
+        <p class="view"><a href="https://github.com/briancappello/PyTradeLib">View the Project on GitHub <small>briancappello/PyTradeLib</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/briancappello/PyTradeLib/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/briancappello/PyTradeLib/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/briancappello/PyTradeLib">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>PyTradeLib</h1>
+
+<p>PyTradeLib is a python library for managing instrument data, screening and
+backtesting.</p>
+
+<h3>Thanks and Acknowledgements</h3>
+
+<ul>
+<li>Gabriel Martin Becedillas Ruiz, for authoring the original PyAlgoTrade<br>
+</li>
+<li>John Benediktsson, for authoring the talib wrapper and helping me extensively<br>
+</li>
+<li>The authors of the original TA-Lib, zipline, and the entire SciPy community
+for all of the excellent tools and documentation!<br>
+</li>
+<li>And, well, the internet.<br>
+</li>
+</ul><h3>So what's different?</h3>
+
+<ul>
+<li>The entire API is a more pythonic lower_cased_api.<br>
+</li>
+<li>Everything uses new-style classes now.<br>
+</li>
+<li>Newly added files are licensed under the LGPLv3+.<br>
+</li>
+<li>Symbol Data Management in general got completely rewritten and expanded:<br><ul>
+<li>Downloading of data for more than one symbol at a time sees huge performance
+increases.<br>
+</li>
+<li>Added a stock screener that can filter on fundamentals and/or backtest results.<br>
+</li>
+<li>Data is (optionally) kept automatically updated by a daemon running in the
+background, or manually by a convenience script. [PARTIAL - quote server too?]<br>
+</li>
+<li>Memory usage while backtesting with many symbols is significantly decreased
+due primarily to wider use of generators throughout the library. [PARTIAL]<br>
+</li>
+</ul>
+</li>
+</ul><h3>TODO:</h3>
+
+<ul>
+<li>Add timezone support across the board.<br>
+</li>
+<li>Python properties should be used in preference over getter/setter functions.<br>
+</li>
+<li>Lots of work on StrategyAnalyzers left to do. [results in SQL?]<br>
+</li>
+<li>Convert storage of non-historical data to SQL. [MOSTLY DONE, needs testing]<br>
+</li>
+<li>Convert testing to nosetests.<br>
+</li>
+<li>Convert underlying data structures to numpy arrays for better performance,
+memory usage and integration with talib.<br>
+</li>
+<li>Work on improving local multiprocessing optimizer.<br>
+</li>
+<li>Then work on improving local network/multi-system multiprocessing optimizer.<br>
+</li>
+</ul><h3>Regressions:</h3>
+
+<ul>
+<li>The homegrown indicators from PyAlgoTrade have been removed in favor of talib.<br>
+</li>
+<li>For the time being, googleappengine support has also been removed.<br>
+</li>
+</ul><h1>Installing</h1>
+
+<h3>Dependencies:</h3>
+
+<p><a href="http://www.python.org/">python</a> 2.7.x<br><a href="http://www.numpy.org/">numpy</a><br><a href="http://matplotlib.org/">matplotlib</a><br><a href="http://www.gevent.org/">gevent</a> [TODO: replace with something that supports Windows?]<br><a href="https://github.com/steeve/python-lz4">lz4</a> [TODO: make optional]<br><a href="http://pypi.python.org/pypi/decorator">decorator</a>  </p>
+
+<h3>Install PyTradeLib:</h3>
+
+<pre><code>$ git clone git://github.com/briancappello/PyTradeLib.git  
+$ cd PyTradeLib  
+$ sudo python setup.py install
+</code></pre>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/briancappello">briancappello</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
