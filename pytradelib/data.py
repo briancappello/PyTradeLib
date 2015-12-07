@@ -1,10 +1,29 @@
+import os
+from datetime import datetime
+from pytradelib.store import CSVStore
+from pytradelib.quandl.wiki import QuandlDailyWikiProvider
+from pytradelib.settings import DATA_DIR
 
-from pytradelib.utils import get_parse_symbols, csv_to_df
-from pytradelib.quandl import _construct_url as construct_url_quandl
-from pytradelib.quandl import _deconstruct_url as deconstruct_url_quandl
+class DataManager(object):
+    def __init__(self, store=None, data_provider=None):
+        self._store = store or CSVStore()
+        self._provider = data_provider or QuandlDailyWikiProvider()
 
+    def initialize_store(self):
+        raise NotImplementedError
 
-def get_symbols_quandl(symbols, start='2010-01-01', end='2010-08-31', interval=None):
-    if not isinstance(symbols, list):
-        symbols = [symbols]
-    return get_parse_symbols(symbols, start, end, interval, construct_url_quandl, deconstruct_url_quandl, csv_to_df)
+    def update_store(self):
+        symbols = dict([ (symbol, {'start': self._store.get_end_date(symbol),
+                                   'end': datetime.now()} )\
+                         for symbol in self._store.symbols ])
+        self._store.set_dfs(self._provider.download(symbols))
+
+    def analyze(self):
+        results = self._store.analyze()
+        filename = '%s-analysis.csv' % datetime.now().strftime('%Y-%m-%d')
+        results.to_csv(os.path.join(DATA_DIR, filename))
+        return results
+
+if __name__ == '__main__':
+    data_manager = DataManager(CSVStore(), QuandlDailyWikiProvider())
+    data_manager.update_store()

@@ -1,73 +1,77 @@
+from __future__ import print_function
+
 import os
+import time
+import pytz
 import pandas as pd
 
-pd.set_option('io.hdf.default_format', 'table')
-
-from pandas import HDFStore
 from pandas.compat import StringIO, bytes_to_str
 
-import grequests
-from gevent import monkey
-monkey.patch_all()
+import datetime as dt
 
-DATA_DIR = os.environ['HOME'] + '/.pytradelib'
-__STORE = None
+def batch(list_, size, sleep=None):
+    list_ = list(list_)
+    len_ = len(list_)
+    for i in xrange((len_ / size) + 1):
+        start_idx = i * size
+        end_idx = (i + 1) * size
+        if end_idx > len_:
+            end_idx = len_
+        yield list_[start_idx:end_idx]
+        if sleep:
+            print('Sleeping for %d seconds' % sleep)
+            time.sleep(sleep)
 
 
-def _bulk_download(urls):
-    return grequests.imap((grequests.get(url) for url in urls))
+def _sanitize_dates(start, end):
+    from pandas.core.datetools import to_datetime
+    start = to_datetime(start)
+    end = to_datetime(end)
+    if start is None:
+        start = dt.datetime(2010, 1, 1)
+    if end is None:
+        end = dt.datetime.today()
+    return start, end
 
-def get_parse_symbols(symbols, start, end, interval, symbol_to_url, url_to_symbol, data_to_df):
-    urls = (symbol_to_url(symbol.upper(), start, end, interval) for symbol in symbols)
-    def parse_response_to_symbol_and_df(r):
-        return url_to_symbol(r.url), data_to_df(r.text)
-    data = map(parse_response_to_symbol_and_df, _bulk_download(urls))
-    bulk_persist(data)
-    return data
 
 def csv_to_df(text):
-    rs = pd.read_csv(StringIO(bytes_to_str(text)), index_col=0,
-                     parse_dates=True, na_values='-')[::-1]
+    df = pd.read_csv(StringIO(bytes_to_str(text)), index_col=0,
+                     parse_dates=True, infer_datetime_format=True,
+                     na_values='-')[::-1]
 
     # Yahoo! Finance sometimes does this awesome thing where they
     # return 2 rows for the most recent business day
-    if len(rs) > 2 and rs.index[-1] == rs.index[-2]: # pragma: no cover
-        rs = rs[:-1]
+    if len(df) > 2 and df.index[-1] == df.index[-2]: # pragma: no cover
+        df = df[:-1]
 
-    # Get rid of unicode characters in index name.
+    # Get rid of unicode charactedf in index name.
     try:
-        rs.index.name = rs.index.name.decode('unicode_escape').encode('ascii', 'ignore')
+        df.index.name = df.index.name.decode('unicode_escape').encode('ascii', 'ignore')
     except AttributeError:
         # Python 3 string has no decode method.
-        rs.index.name = rs.index.name.encode('ascii', 'ignore').decode()
-    return rs
+        df.index.name = df.index.name.encode('ascii', 'ignore').decode()
 
-def get_store():
-    global __STORE
-    if not __STORE:
-        if not os.path.exists(DATA_DIR):
-            os.mkdir(DATA_DIR)
-        __STORE = HDFStore(DATA_DIR + '/store.hdf5')
-    return __STORE
+    column_renames = {'Adj. Open': 'Adj Open', 'Adj. High': 'Adj High',
+                      'Adj. Low': 'Adj Low', 'Adj. Close': 'Adj Close',
+                      'Adj. Volume': 'Adj Volume'}
+    df.rename(columns=column_renames, inplace=True)
+    return df.tz_localize(pytz.UTC)
 
-def store_path(symbol, interval):
-    return '/symbols/%s/%s' % (symbol.upper(), interval.lower())
 
-def exists(symbol, interval):
-    store = get_store()
-    return store_path(symbol, interval) in store.keys()
+def percent_change(from_val, to_val):
+    # coerce to float for decimal division
+    diff = float(to_val) - from_val
+    return (diff / from_val) * 100
 
-def persist(symbol, interval, df):
-    store = get_store()
-    if exists(symbol, interval):
-        store.append(store_path(symbol, interval), df)
-    else:
-        store.put(store_path(symbol, interval), df)
 
-def bulk_persist(data):
-    for symbol_data, df in data:
-        persist(symbol_data['symbol'], symbol_data['interval'], df)
+def crossed(value, yesterday, today, use_adjusted=True):
+    def key(price_key):
+        return 'Adj ' + price_key if use_adjusted else price_key
+    crossed_over = yesterday[key('Close')] < value < today[key('Close')]
+    crossed_under = yesterday[key('Close')] > value > today[key('Close')]
+    return crossed_over or crossed_under
 
-def most_recent_datetime(symbol, interval):
-    store = get_store()
-    return store.get(store_path(symbol, interval)).tail(1).index[0].to_datetime()
+
+def within_percent_of_value(price, value, percent=1):
+    diff = percent * 0.01 * 0.5 * value
+    return (value - diff) < price < (value + diff)
