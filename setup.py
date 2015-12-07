@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 NAME = 'pytradelib'
 
@@ -23,6 +23,6 @@ setup(
     author='Brian Cappello',
     author_email='briancappello@gmail.com',
     install_requires=INSTALL_REQUIRES,
-    packages=['pytradelib'],
+    packages=find_packages('.'),
     zip_safe=False,
 )
