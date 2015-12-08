@@ -1,6 +1,14 @@
-from urllib import urlencode
 
-from pytradelib.utils import batch, bulk_download
+
+from pytradelib.utils import batch
+from pytradelib.downloader import Downloader
+
+from urllib import urlencode
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
 
 def get_yql_url(yql):
     base_url = 'http://query.yahooapis.com/v1/public/yql?'
@@ -15,9 +23,9 @@ def get_yql_url(yql):
 _EXCHANGES = {
     'ASE': 'AMEX',
     'NYQ': 'NYSE',
-    'NMS': 'NASDAQ', #'NasdaqGS',
-    'NGM': 'NASDAQ', #'NasdaqGM',
-    'NCM': 'NASDAQ', #'NasdaqCM',
+    'NMS': 'NASDAQ',  # 'NasdaqGS',
+    'NGM': 'NASDAQ',  # 'NasdaqGM',
+    'NCM': 'NASDAQ',  # 'NasdaqCM',
 }
 
 
@@ -30,16 +38,20 @@ def _convert_result(result):
     r = {}
     for k, v in result.items():
         if k == 'StockExchange':
-            k = 'Exchange'
+            k = 'exchange'
             v = _EXCHANGES.get(v, None)
+        if k == 'ErrorIndicationreturnedforsymbolchangedinvalid':
+            k = 'error'
+        if k == 'LastTradeDate':
+            k = 'last_trade_date'
         r[k.lower()] = v
     return r
 
 
-def get_symbol_info(symbols, keys=None):
+def get_symbols_info(symbols, keys=None):
     if not isinstance(symbols, (list, tuple)):
         symbols = list(symbols)
-    keys = keys or ['Symbol', 'Name', 'StockExchange']
+    keys = keys or ['Symbol', 'Name', 'StockExchange', 'LastTradeDate']
     yql = 'select %(keys)s from yahoo.finance.quotes where symbol in (%(symbols)s)'
 
     urls = []
@@ -47,11 +59,11 @@ def get_symbol_info(symbols, keys=None):
         csv_symbols = ','.join(['"%s"' % s.upper() for s in batched_symbols])
         urls.append(get_yql_url(yql % {'keys': ','.join(keys),
                                        'symbols': csv_symbols}))
+    downloader = Downloader()
 
-    results = {}
-    for r in bulk_download(urls):
-        for result in r.json()['query']['results']['quote']:
-            result = _convert_result(result)
-            results[result['symbol']] = result
-
+    results = []
+    for url, text in downloader.download(urls):
+        json_ = json.loads(text)
+        for result in json_['query']['results']['quote']:
+            results.append(_convert_result(result))
     return results
