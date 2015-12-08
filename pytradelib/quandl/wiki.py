@@ -8,9 +8,9 @@ from pytradelib.utils import _sanitize_dates, csv_to_df
 
 
 class QuandlDailyWikiProvider(object):
-    def __init__(self, api_key=None):
+    def __init__(self, api_key=None, batch_size=100, sleep=None):
         self._api_key = api_key
-        self._downloader = Downloader()
+        self._downloader = Downloader(batch_size=batch_size, sleep=sleep)
 
     @property
     def api_key(self):
