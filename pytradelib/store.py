@@ -34,6 +34,7 @@ class CSVStore(object):
 
     def get_df(self, symbol, start=None, end=None):
         symbol = symbol.upper()
+
         def to_timestamp(dt, default):
             if dt:
                 return pd.Timestamp(dt, tz=pytz.UTC)
@@ -184,13 +185,13 @@ class CSVStore(object):
         def key(price_key):
             return 'Adj ' + price_key if use_adjusted else price_key
         df['dollar_volume'] = df[key('Close')] * df.Volume
-        df['atr'] = ta.NATR(df[key('High')].values, df[key('Low')].values, df[key('Close')].values) # timeperiod 14
-        df['sma100'] = ta.SMA(df[key('Close')].values, timeperiod=20)
-        df['sma200'] = ta.SMA(df[key('Close')].values, timeperiod=20)
+        df['atr'] = ta.NATR(df[key('High')].values, df[key('Low')].values, df[key('Close')].values)  # timeperiod 14
+        df['sma100'] = ta.SMA(df[key('Close')].values, timeperiod=100)
+        df['sma200'] = ta.SMA(df[key('Close')].values, timeperiod=200)
         df['bbands_upper'], df['sma20'], df['bbands_lower'] = ta.BBANDS(df[key('Close')].values, timeperiod=20)
-        df['macd_lead'], df['macd_lag'], df['macd_divergence'] = ta.MACD(df[key('Close')].values) # 12, 26, 9
-        df['rsi'] = ta.RSI(df[key('Close')].values) # 14
+        df['macd_lead'], df['macd_lag'], df['macd_divergence'] = ta.MACD(df[key('Close')].values)  # 12, 26, 9
+        df['rsi'] = ta.RSI(df[key('Close')].values)  # 14
         df['stoch_lead'], df['stoch_lag'] = ta.STOCH(df[key('High')].values, df[key('Low')].values, df[key('Close')].values,
                                                         fastk_period=14, slowk_period=1, slowd_period=3)
-        df['slope'] = ta.LINEARREG_SLOPE(df[key('Close')].values) * -1 # talib returns the inverse of what we want
+        df['slope'] = ta.LINEARREG_SLOPE(df[key('Close')].values) * -1  # talib returns the inverse of what we want
         return df
