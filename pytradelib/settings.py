@@ -20,8 +20,8 @@ LOG_FILENAME = os.path.join(LOG_DIR, 'pytradelib.log')
 LOG_LEVEL = 'info' # debug, info, warning, error or critical
 
 
-if not os.path.exists(DATA_DIR):
-    os.mkdir(DATA_DIR)
-
 if not os.path.exists(LOG_DIR):
-    os.mkdir(LOG_DIR)
+    os.makedirs(LOG_DIR)
+
+if not os.path.exists(ZIPLINE_CACHE_DIR):
+    os.makedirs(ZIPLINE_CACHE_DIR)
