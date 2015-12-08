@@ -1,20 +1,16 @@
-from __future__  import print_function
-
-import urllib3.contrib.pyopenssl
-from pytradelib.utils import batch
-
-urllib3.contrib.pyopenssl.inject_into_urllib3()
+from __future__ import print_function
 
 import requests
 import grequests
 from gevent import monkey
 monkey.patch_all()
 
+from pytradelib.utils import batch
 from pytradelib.logger import logger
 
 
 class Downloader(object):
-    def __init__(self, batch_size=100, sleep=None):
+    def __init__(self, batch_size=25, sleep=None):
         self._batch_size = batch_size
         self._sleep = sleep
 
@@ -55,20 +51,32 @@ class Downloader(object):
 
     def _bulk_download(self, urls):
         results = []
-        for batched_urls in batch(urls, self.batch_size, self.sleep):
+        for i, batched_urls in enumerate(batch(urls, self.batch_size, self.sleep)):
             for r in self.__bulk_download(batched_urls):
-                print('finished downloading ' + r.url)
-                results.append( (r.url, r.content) )
+                results.append((r.url, r.content))
+            logger.debug('Downloaded %d of %d urls' % (
+                (i * self.batch_size) + self.batch_size,
+                len(urls)
+            ))
+        logger.debug('got %d results' % len(results))
         return results
 
     def __bulk_download(self, urls, errors=None):
         errors = errors or []
+
+        def log_response(response, **kwargs):
+            logger.info('Download completed: ' + response.url)
+
         def exception_handler(req, ex):
             msg = 'Failed to download ' + req.url
             if isinstance(ex, requests.exceptions.Timeout):
                 msg = 'Connection timed out: %(ex)s (%(url)s)' % {'ex': ex.__str__(), 'url': req.url}
             elif isinstance(ex, requests.exceptions.RequestException):
                 msg = 'Error downloading: %(ex)s (%(url)s)' % {'ex': ex, 'url': req.url}
+            else:
+                msg = ' '.join([msg, str(ex)])
             errors.append(req.url)
             logger.error(msg)
-        return grequests.map((grequests.get(url) for url in urls), exception_handler=exception_handler)
+
+        return grequests.map((grequests.get(url, callback=log_response) for url in urls),
+                             exception_handler=exception_handler)
