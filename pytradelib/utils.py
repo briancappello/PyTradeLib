@@ -1,13 +1,14 @@
 from __future__ import print_function
 
-import os
 import time
 import pytz
 import pandas as pd
 
 from pandas.compat import StringIO, bytes_to_str
+from pandas.core.datetools import to_datetime
 
-import datetime as dt
+from datetime import datetime
+
 
 def batch(list_, size, sleep=None):
     list_ = list(list_)
@@ -17,20 +18,21 @@ def batch(list_, size, sleep=None):
         end_idx = (i + 1) * size
         if end_idx > len_:
             end_idx = len_
-        yield list_[start_idx:end_idx]
+        result = list_[start_idx:end_idx]
+        if result:
+            yield result
         if sleep:
             print('Sleeping for %d seconds' % sleep)
             time.sleep(sleep)
 
 
 def _sanitize_dates(start, end):
-    from pandas.core.datetools import to_datetime
     start = to_datetime(start)
     end = to_datetime(end)
     if start is None:
-        start = dt.datetime(2010, 1, 1)
+        start = datetime(1900, 1, 1)
     if end is None:
-        end = dt.datetime.today()
+        end = datetime.today()
     return start, end
 
 
@@ -41,10 +43,10 @@ def csv_to_df(text):
 
     # Yahoo! Finance sometimes does this awesome thing where they
     # return 2 rows for the most recent business day
-    if len(df) > 2 and df.index[-1] == df.index[-2]: # pragma: no cover
+    if len(df) > 2 and df.index[-1] == df.index[-2]:  # pragma: no cover
         df = df[:-1]
 
-    # Get rid of unicode charactedf in index name.
+    # Get rid of unicode characters in index name.
     try:
         df.index.name = df.index.name.decode('unicode_escape').encode('ascii', 'ignore')
     except AttributeError:
