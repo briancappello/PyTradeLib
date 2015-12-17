@@ -7,42 +7,15 @@ from colorclass import Color
 from terminaltables import AsciiTable
 
 from pytradelib.hash import Hash
-from pytradelib.settings import (
-    COMMISSION,
-    MAX_AMOUNT,
-    SCALE_OUT_LEVELS
-)
-from pytradelib.models.order import (
-    Order,
-    ACTION_BUY,
-    ACTION_SELL,
-    ACTION_SHORT,
-    TYPE_MARKET,
-    TYPE_LIMIT,
-    TYPE_STOP,
-    TYPE_STOP_LIMIT,
-    TIMING_DAY,
-    TIMING_GOOD_TILL_CANCELED,
-)
-
-
-
-class Trade(object):
-    entry = None
-    exits = []
-
-    def __init__(self, entry, exits):
-        pass
+from pytradelib.settings import COMMISSION, MAX_AMOUNT
 
 
 def error():
     print('Command should be in the format of:\n <buy|sell> [quantity] <ticker> at <price>, <sell|buy> at <target_price> or <stop_price>')
     sys.exit(1)
 
-'''
-action [q] ticker stop 4 limit 5
-action [q] ticker at 5  # limit order
-'''
+BUY = 'BUY'
+SELL = 'SELL'
 
 REGEXES = {
     'limit': re.compile('''
@@ -78,74 +51,65 @@ REGEXES = {
     ''', re.VERBOSE),
 }
 
+
 def parse_args(args):
     entry_command, exit_command = args.command
     entry_match = REGEXES['limit'].search(entry_command) or REGEXES['stop_limit'].search(entry_command)
     exit_match = REGEXES['exit'].search(exit_command)
     if not entry_match or not exit_match:
         error()
-    matches = Hash(**entry_match.groupdict())
 
-    def create_entry(matches):
+    entry = Hash(**entry_match.groupdict())
+    entry.action = entry.action.upper()
+    entry.ticker = entry.ticker.upper()
+    if 'price' in entry:
+        entry.price = float(entry.price)
+    else:
+        entry.stop_price = float(entry.stop_price)
+        entry.price = float(entry.limit_price)
+    entry.quantity = int(entry.quantity) if entry.quantity\
+        else calculate_quantity(entry.price, args.max)
 
-        price = float(matches.entry_price)
-        quantity = int(matches.quantity) if matches.quantity else calculate_quantity(price, args.max)
-        actions = {
-            'buy': ACTION_BUY,
-            'sell': ACTION_SHORT,
-        }
-        types = {
-            None: TYPE_MARKET,
-            'market': TYPE_MARKET,
-            'limit': TYPE_LIMIT
-        }
-        return Order(action=ACTION_BUY if matches.action == 'buy' else ACTION_SHORT,
-                     quantity=quantity,
-                     ticker=matches.ticker.upper(),
-                     type=types[matches.type],
-                     price=price)
-
-    def create_exit():
-        pass
-
-    # parse exit
-    pattern = r'^(?P<action>(buy|sell)) at (?P<target_price>(?:\d+\.)?\d+) or (?P<stop_price>(?:\d+\.)?\d+)$'
-    regex = re.compile(pattern)
-    match = regex.search(exit)
-    if not match:
-        error()
-    exit = Hash(**match.groupdict())
+    exit = Hash(**exit_match.groupdict())
     exit.action = exit.action.upper()
     exit.target_price = float(exit.target_price)
     exit.stop_price = float(exit.stop_price)
 
     # validate inputs
     if entry.action == BUY:
+        assert exit.action == SELL, 'exit action must be sell for buy orders'
         if not exit.target_price > exit.stop_price:
             target = exit.stop_price
             exit.stop_price = exit.target_price
             exit.target_price = target
-        assert exit.action == SELL, 'exit action must be sell for buy orders'
-        assert exit.target_price > entry.price, 'Target price must be greater than %.2f (%.2f given)' % (
-            entry.price, exit.target_price
+        assert exit.target_price > entry.price, 'Target price must be greater than %s (%s given)' % (
+            pf(entry.price), pf(exit.target_price)
         )
-        assert exit.stop_price < entry.price, 'Stop price must be less than %.2f (%.2f given)' % (
-            entry.price, exit.stop_price
+        assert exit.stop_price < entry.price, 'Stop price must be less than %s (%s given)' % (
+            pf(entry.price), pf(exit.stop_price)
         )
-    else:
+        if 'stop_price' in entry:
+            assert entry.stop_price < entry.price, 'Entry stop price must be less than %s (%s given)' % (
+                pf(entry.price), pf(entry.stop_price)
+            )
+    else:  # entry.action == SELL
+        assert exit.action == BUY, 'exit action must be buy for sell orders'
         if not exit.target_price < exit.stop_price:
             target = exit.stop_price
             exit.stop_price = exit.target_price
             exit.target_price = target
-        assert exit.action == BUY, 'exit action must be buy for sell orders'
-        assert exit.target_price < entry.price, 'Target price must be less than %.2f (%.2f given)' % (
-            entry.price, exit.target_price
+        assert exit.target_price < entry.price, 'Target price must be less than %s (%s given)' % (
+            pf(entry.price), pf(exit.target_price)
         )
-        assert exit.stop_price > entry.price, 'Stop price must be greater than %.2f (%.2f given)' % (
-            entry.price, exit.stop_price
+        assert exit.stop_price > entry.price, 'Stop price must be greater than %s (%s given)' % (
+            pf(entry.price), pf(exit.stop_price)
         )
-
+        if 'stop_price' in entry:
+            assert entry.stop_price < entry.price, 'Entry stop price must be greater than %s (%s given)' % (
+                pf(entry.price), pf(entry.stop_price)
+            )
     return entry, exit
+
 
 def calculate_quantity(entry_price, max_amount, lot_size=100):
     def _calculate_quantity(lot_size):
@@ -154,19 +118,34 @@ def calculate_quantity(entry_price, max_amount, lot_size=100):
         return quantity - (quantity % lot_size)
     quantity = _calculate_quantity(lot_size)
     while not quantity:
-        lot_size = lot_size / 10
+        lot_size /= 10
         quantity = _calculate_quantity(lot_size)
     return int(quantity)
+
 
 def pf(price):
     return '$%.2f' % price
 
+
 def risk_reward(entry, exit, commission):
     return total_profit(entry, exit, commission) / risk(entry, exit, commission)
 
+
 def order_summary(entry, exit, commission):
-    data = (
-        ['%(action)s %(quantity)s %(ticker)s' % entry.as_dict(), pf(entry.price), Color('{cyan}%s{/cyan}' % pf(cost(entry, exit, commission)))],
+    data = []
+    if 'stop_price' in entry:
+        data.append(
+            ['%(action)s %(quantity)s %(ticker)s STOP $%(stop_price).2f LIMIT' % entry.as_dict(),
+             pf(entry.price),
+             Color('{cyan}%s{/cyan}' % pf(cost(entry, exit, commission)))]
+        )
+    else:
+        data.append(
+            ['%(action)s %(quantity)s %(ticker)s LIMIT' % entry.as_dict(),
+             pf(entry.price),
+             Color('{cyan}%s{/cyan}' % pf(cost(entry, exit, commission)))]
+        )
+    data.extend([
         ['50% Target', pf(half_target_price(entry, exit)), '+%s' % pf(half_target_profit(entry, exit, commission))],
         ['Target', pf(exit.target_price), '+%s' % pf(target_profit(entry, exit, commission))],
         ['Profit', '', Color('{green}+%s{/green}' % pf(total_profit(entry, exit, commission)))],
@@ -175,20 +154,23 @@ def order_summary(entry, exit, commission):
             'risk_reward': risk_reward(entry, exit, commission),
             'color': 'green' if risk_reward(entry, exit, commission) >= 3 else 'hired'
         })],
-    )
+    ])
 
     table = AsciiTable(data)
     table.inner_column_border = False
     print(table.table)
 
+
 def cost(entry, exit, commission):
     return (entry.price * entry.quantity) + commission
+
 
 def risk(entry, exit, commission):
     risk = entry.quantity * (entry.price - exit.stop_price)
     if risk < 0:
-        risk = risk * -1
+        risk *= -1
     return risk + (2 * commission)
+
 
 def half_target_price(entry, exit):
     if entry.action == BUY:
@@ -197,20 +179,24 @@ def half_target_price(entry, exit):
         return entry.price - ((entry.price - exit.target_price) / 2)
     raise Exception('Unrecognized action: %s' % entry.action)
 
+
 def half_target_profit(entry, exit, commission):
     profit = (entry.quantity / 2) * (half_target_price(entry, exit) - entry.price)
     if profit < 0:
-        profit = profit * -1
+        profit *= -1
     return profit - commission
+
 
 def target_profit(entry, exit, commission):
     profit = (entry.quantity / 2) * (exit.target_price - entry.price)
     if profit < 0:
-        profit = profit * -1
+        profit *= -1
     return profit - commission
+
 
 def total_profit(entry, exit, commission):
     return half_target_profit(entry, exit, commission) + target_profit(entry, exit, commission) - commission
+
 
 if __name__ == '__main__':
     import argparse
@@ -224,7 +210,6 @@ if __name__ == '__main__':
     parser.add_argument('command', metavar='COMMAND', nargs='+', help='The buy and sell command')
     parser.add_argument('--max', default=MAX_AMOUNT, help='The maximum dollar amount to invest', type=max_type, required=False)
     parser.add_argument('--commission', default=COMMISSION, help='Commission charged per trade', type=float, required=False)
-    parser.add_argument('--levels', default=SCALE_OUT_LEVELS, help='The number of scale-out levels', type=int, required=False)
     args = parser.parse_args()
     args.command = ' '.join(args.command).lower().split(', ')
 
