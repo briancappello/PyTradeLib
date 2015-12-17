@@ -27,6 +27,7 @@ class CSVStore(object):
             self._csv_files[symbol] = d['csv_path']
             self._start_dates[symbol] = d['start']
             self._end_dates[symbol] = d['end']
+        self._symbols.sort()
 
     @property
     def symbols(self):
@@ -112,6 +113,10 @@ class CSVStore(object):
                 'near_sma200': within_percent_of_value(today[key('Close')], today['sma200'], 2),
                 'crossed_sma100': crossed(today['sma100'], yesterday, today),
                 'crossed_sma200': crossed(today['sma200'], yesterday, today),
+                'crossed_5': crossed(5, yesterday, today),
+                'crossed_10': crossed(10, yesterday, today),
+                'crossed_50': crossed(50, yesterday, today),
+                'crossed_100': crossed(100, yesterday, today),
 
                 # stock "health" metrics
                 'year_high': year_high,
@@ -121,7 +126,7 @@ class CSVStore(object):
                 'dollar_volume_75th_percentile': int(dollar_volume_desc['75%']),
                 'atr': most_recent_year.atr.describe()['50%'],
             }
-        # transpose the DataFrame so we have rows of tickers, and metrics as columns
+        # transpose the DataFrame so we have rows of symbols, and metrics as columns
         return pd.DataFrame(results).T
 
     def get_start_date(self, symbol):
