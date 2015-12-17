@@ -1,7 +1,9 @@
 import os
+import sys
 import pytz
 import pandas as pd
-from datetime import datetime
+from pandas.tseries.offsets import DateOffset
+from datetime import date, datetime
 from collections import defaultdict
 
 from pytradelib.store import CSVStore
@@ -40,16 +42,21 @@ class DataManager(object):
         self._store.set_dfs(self._provider.download(symbols))
 
     def update_store(self):
-        # early return if data is already up-to-date
-        last_trade_date = self._store.get_end_date(self._store.symbols[0])
-        today = pd.Timestamp(datetime.now().strftime('%Y-%m-%d'), tz=pytz.UTC)
-        if last_trade_date == today:
-            return
+        last_trading_day = pd.Timestamp(date.today(), tz=pytz.UTC)
+        while last_trading_day.weekday() > 4:
+            last_trading_day = last_trading_day - DateOffset(days=1)
 
-        symbols = dict([(symbol, {'start': self._store.get_end_date(symbol),
-                                  'end': datetime.now()})
-                        for symbol in self._store.symbols])
+        symbols = {}
+        for symbol in self._store.symbols:
+            latest_dt = self._store.get_end_date(symbol)
+            if latest_dt != last_trading_day:
+                symbols[symbol] = {'start': latest_dt, 'end': last_trading_day}
+
+        if not symbols:
+            return []
+
         self._store.set_dfs(self._provider.download(symbols))
+        return symbols.keys()
 
     def analyze(self):
         results = self._store.analyze()
@@ -60,6 +67,6 @@ class DataManager(object):
 
 
 if __name__ == '__main__':
-    data_manager = DataManager(CSVStore(), QuandlDailyWikiProvider(batch_size=30))
-    data_manager.update_store()
+    data_manager = DataManager(CSVStore(), QuandlDailyWikiProvider())
+    # data_manager.update_store()
     data_manager.analyze()

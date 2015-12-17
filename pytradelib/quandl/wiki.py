@@ -8,7 +8,7 @@ from pytradelib.utils import _sanitize_dates, csv_to_df
 
 
 class QuandlDailyWikiProvider(object):
-    def __init__(self, api_key=None, batch_size=100, sleep=None):
+    def __init__(self, api_key=None, batch_size=20, sleep=20):
         self._api_key = api_key
         self._downloader = Downloader(batch_size=batch_size, sleep=sleep)
 
@@ -26,9 +26,10 @@ class QuandlDailyWikiProvider(object):
             csv = self._downloader.download(url)
             return csv_to_df(csv)
         elif isinstance(symbols, (list, tuple)):
-            urls = [self._construct_url(symbol, start, end) for symbol in symbols]
+            urls = [self._construct_url(symbol, start, end)
+                    for symbol in symbols]
         elif isinstance(symbols, dict):
-            urls = [self._construct_url(symbol, d['start'], d['end'])\
+            urls = [self._construct_url(symbol, d['start'], d['end'])
                     for symbol, d in symbols.items()]
         else:
             raise Exception('symbols must be a string, a list of strings, or a dict of string to start/end dates')
