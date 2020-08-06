@@ -1,10 +1,8 @@
-from __future__ import print_function
-
 import csv
 import requests
 import pandas as pd
 from zipfile import ZipFile
-from cStringIO import StringIO
+from io import StringIO
 
 
 URL = 'https://www.quandl.com/api/v3/databases/%(dataset)s/codes'
@@ -17,19 +15,19 @@ def dataset_url(dataset):
 def download_file(url):
     r = requests.get(url)
     if r.status_code == 200:
-        return StringIO(r.content)
+        return StringIO(r.text)
 
 
 def unzip(file_):
     d = unzip_files(file_)
-    return d[d.keys()[0]]
+    return d[list(d.keys())[0]]
 
 
 def unzip_files(file_):
     d = {}
     with ZipFile(file_, 'r') as zipfile:
         for filename in zipfile.namelist():
-            d[filename] = zipfile.read(filename)
+            d[filename] = str(zipfile.read(filename))
     return d
 
 
